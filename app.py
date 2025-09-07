@@ -46,19 +46,27 @@ with st.sidebar:
     threshold = st.slider("Threshold (%)", 0, 100, 50, 1)
     turdsize = st.slider("Turdsize (min path size)", 0, 100, 2, 1)
     alphamax = st.slider("Alphamax (curve optimization)", 0.0, 1.0, 1.0, step=0.1)
-    line_width = st.slider("Line Width", 0.1, 20.0, 1.0, step=0.1)
+    line_width = st.slider("Line Width", 0.1, 200.0, 1.0, step=0.1)
 
-uploaded = st.file_uploader("Upload a line drawing (PNG/JPG)", type=["png", "jpg", "jpeg"])
+uploaded = st.file_uploader("Upload a line drawing (PNG/JPG/PDF)", type=["png", "jpg", "jpeg", "pdf"])
 col1, col2 = st.columns(2, gap="large")
 
 if uploaded is None:
     with col1:
-        st.info("Upload an image to begin.")
+        st.info("Upload an image or PDF to begin.")
 else:
-    # Save the uploaded image to a temporary file
-    input_path = "uploaded_image.png"
+    # Save the uploaded file to a temporary file
+    input_path = "uploaded_file"
     with open(input_path, "wb") as f:
         f.write(uploaded.getbuffer())
+
+    # If the file is a PDF, convert it to an image first
+    if uploaded.name.lower().endswith(".pdf"):
+        converted_path = f"{input_path}.png"
+        subprocess.run([
+            "convert", input_path, converted_path
+        ], check=True)
+        input_path = converted_path
 
     # Run the system calls to generate SVG
     try:
@@ -66,7 +74,10 @@ else:
 
         with col1:
             st.subheader("Original")
-            st.image(uploaded, use_container_width=True)
+            if uploaded.name.lower().endswith(".pdf"):
+                st.image(input_path, use_container_width=True)
+            else:
+                st.image(uploaded, use_container_width=True)
 
         with col2:
             st.subheader("SVG Preview")
@@ -80,4 +91,4 @@ else:
             st.download_button("Download SVG", data=svg_markup.encode("utf-8"), file_name="output.svg", mime="image/svg+xml")
 
     except subprocess.CalledProcessError as e:
-        st.error(f"An error occurred while processing the image: {e}")
+        st.error(f"An error occurred while processing the file: {e}")
